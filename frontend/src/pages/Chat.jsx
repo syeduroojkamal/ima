@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router";
 import backButtonImg from "../assets/back-button.svg";
 import sideMenuImg from "../assets/side-menu.svg";
 import sendButtonImg from "../assets/send-button.svg";
@@ -9,18 +9,77 @@ import SentMessage from "../components/Chats/SentMessage";
 export default function Chat() {
   const navigate = useNavigate();
   const refMessageBox = useRef(null);
+  const location = useLocation();
+  const { name, id } = location.state || {};
+
+  const fetched = useRef(false);
+  const [allMessages, setAllMessages] = useState([]);
+  const fetchData = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/message/all-messages",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ otherId: id }),
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "All message fetch failed");
+      }
+
+      setAllMessages(data);
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
+
+  useEffect(() => {
+    if (!fetched.current) {
+      fetchData();
+      fetched.current = true;
+    }
+  }, []);
 
   function handleBackButton() {
     navigate("/chats");
   }
+
+  const sendMessage = async (payload) => {
+    try {
+      const response = await fetch("http://localhost:3000/api/message/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "User delete failed");
+      }
+      fetchData();
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
 
   function handleSubmit(event) {
     event.preventDefault();
 
     const formData = new FormData(event.target);
     const message = formData.get("message");
+    if (!message) {
+      return;
+    }
 
-    console.log(message);
+    const payload = { receiverId: id, message };
+    sendMessage(payload);
     refMessageBox.current.reset();
   }
   return (
@@ -37,7 +96,7 @@ export default function Chat() {
           src="https://images.vexels.com/content/145908/preview/male-avatar-maker-2a7919.png"
           alt="Profile Photo"
         />
-        <div className="text-3xl">Saima</div>
+        <div className="text-3xl">{name}</div>
         <button popovertarget="sideMenu" className="ml-auto mr-7">
           <img className="w-8" src={sideMenuImg} alt="" />
         </button>
@@ -63,8 +122,20 @@ export default function Chat() {
       </div>
 
       <div className="flex flex-col">
-        <SentMessage message="Hi" />
-        <RecievedMessage message="How are you" />
+        {allMessages.map((message) => {
+          let isSender = false;
+          if (message.receiverId === id) {
+            isSender = true;
+          }
+          return (
+            <SentMessage
+              key={message._id}
+              message={message.message}
+              id={message._id}
+              isSender={isSender}
+            />
+          );
+        })}
       </div>
 
       <div className="fixed bottom-0 flex h-24 w-full items-end bg-slate-700 p-5">

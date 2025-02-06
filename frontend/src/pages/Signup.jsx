@@ -1,7 +1,38 @@
+import ErrorMessage from "../components/ErrorMessage";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 export default function Signup() {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
+
+  const signup = async (name, email, password) => {
+    const payload = { name, email, password };
+    try {
+      const response = await fetch("http://localhost:3000/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Signup failed");
+      }
+
+      navigate("/chats");
+
+      console.log("Signup successful:", data);
+      return data;
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
   function handleSubmit(event) {
     event.preventDefault();
 
@@ -10,9 +41,18 @@ export default function Signup() {
     const email = formData.get("email");
     const password = formData.get("password");
 
-    console.log(`${name} ${email} ${password}`);
+    // client side validation
+    if (!name || !email || !password) {
+      setError("Fill all input fields");
+      return;
+    }
+    if (password.length < 4) {
+      setError("Password must be at least 4 characters long.");
+      return;
+    }
+    // end client side validation
 
-    navigate("/chats");
+    signup(name, email, password);
   }
 
   return (
@@ -41,6 +81,7 @@ export default function Signup() {
           type="password"
           name="password"
           placeholder="Password"
+          autoComplete="new-password"
         />
         <button className="w-full rounded bg-blue-500 py-2">Sign Up</button>
         <span>
@@ -49,6 +90,7 @@ export default function Signup() {
             Login
           </Link>
         </span>
+        {error ? <ErrorMessage message={error} /> : null}
       </form>
     </div>
   );

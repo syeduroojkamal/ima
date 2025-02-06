@@ -1,7 +1,35 @@
+import ErrorMessage from "../components/ErrorMessage";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 export default function Login() {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
+
+  const login = async (email, password) => {
+    const payload = { email, password };
+    try {
+      const response = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      navigate("/chats");
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
   function handleSubmit(event) {
     event.preventDefault();
 
@@ -9,9 +37,17 @@ export default function Login() {
     const email = formData.get("email");
     const password = formData.get("password");
 
-    console.log(`${email} ${password}`);
-
-    navigate("/chats");
+    // client side validation
+    if (!email || !password) {
+      setError("Fill all input fields");
+      return;
+    }
+    if (password.length < 4) {
+      setError("Password must be at least 4 characters long.");
+      return;
+    }
+    // end client side validation
+    login(email, password);
   }
 
   return (
@@ -42,6 +78,7 @@ export default function Login() {
             Sign Up
           </Link>
         </span>
+        {error ? <ErrorMessage message={error} /> : null}
       </form>
     </div>
   );
